@@ -1,0 +1,19 @@
+### Variáveis
+@url = http://localhost:3001
+
+### Listar todas as transações (GET)
+GET {{url}}/transacoes
+Content-Type: application/json
+
+###
+
+### Criar um lançamento contábil (POST)
+POST {{url}}/transacoes
+Content-Type: application/json
+
+{
+    "descricao": "Pagamento de Aluguel",
+    "valor": 1200.50,
+    "tipo": "despesa",
+    "categoria": "Infraestrutura"
+}
