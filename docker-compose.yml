@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  api:
+    image: ghcr.io/luanlum/projeto-contabilidade:latest
+    container_name: backend-api
+    restart: always
+    ports:
+      - "3001:3001"
+    # IMPORTANTE: Isso evita que o container "coma" toda a RAM da Oracle
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+    # Se você tiver variáveis de ambiente, elas entram aqui:
+    env_file:
+      - .env

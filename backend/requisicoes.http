@@ -1,5 +1,6 @@
 ### Variáveis
-@url = http://localhost:3001
+//@url = http://localhost:3001
+@url = http://136.248.80.165:3001
 
 ### Listar todas as transações (GET)
 GET {{url}}/transacoes

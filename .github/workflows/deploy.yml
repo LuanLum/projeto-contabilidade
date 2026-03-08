@@ -1,0 +1,47 @@
+name: Deploy Backend Contabilidade
+
+on:
+  push:
+    branches: [main] # Dispara sempre que você der push na main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e Push da Imagem Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # Nome da imagem no registro do GitHub
+          tags: ghcr.io/${{ github.repository }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executar comandos no servidor via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ~/projeto-contabilidade
+            # Login no registro de imagens dentro do servidor
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Puxa a imagem nova e sobe o container
+            docker compose pull
+            docker compose up -d
+            # Limpa imagens antigas para não encher o disco de 1GB
+            docker image prune -f
