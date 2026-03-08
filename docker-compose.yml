@@ -7,11 +7,9 @@ services:
     restart: always
     ports:
       - "3001:3001"
-    # IMPORTANTE: Isso evita que o container "coma" toda a RAM da Oracle
     deploy:
       resources:
         limits:
-          memory: 400M
-    # Se você tiver variáveis de ambiente, elas entram aqui:
+          memory: 512M
     env_file:
       - .env

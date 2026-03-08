@@ -2,7 +2,12 @@ name: Deploy Backend Contabilidade
 
 on:
   push:
-    branches: [main] # Dispara sempre que você der push na main
+    branches: [main]
+
+# Permissões necessárias para escrever no GitHub Packages (GHCR)
+permissions:
+  packages: write
+  contents: read
 
 jobs:
   build-and-push:
@@ -15,8 +20,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build e Push da Imagem Docker
         uses: docker/build-push-action@v5
@@ -24,13 +29,24 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          # Nome da imagem no registro do GitHub
-          tags: ghcr.io/luanlum/projeto-contabilidade:latest
+          tags: ghcr.io/${{ github.repository_owner }}/projeto-contabilidade:latest
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout do código (para pegar o docker-compose.yml)
+        uses: actions/checkout@v4
+
+      - name: Copiar docker-compose.yml para o servidor
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml" # Ou o caminho onde ele estiver
+          target: "~/projeto-contabilidade"
+
       - name: Executar comandos no servidor via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -39,10 +55,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/projeto-contabilidade
-            # Login no registro de imagens dentro do servidor
+            # Login silencioso usando o token automático do GitHub
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            # Puxa a imagem nova e sobe o container
+
+            # Atualiza para a versão mais nova da imagem
             docker compose pull
-            docker compose up -d
-            # Limpa imagens antigas para não encher o disco de 1GB
+
+            # Reinicia os serviços (o --remove-orphans limpa lixo de configs antigas)
+            docker compose up -d --remove-orphans
+
+            # Faxina final: Remove imagens 'dead' que sobraram do pull anterior
             docker image prune -f
