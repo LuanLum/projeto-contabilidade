@@ -24,7 +24,7 @@ jobs:
           context: ./backend
           push: true
           # Nome da imagem no registro do GitHub
-          tags: ghcr.io/luanlum/projeto-contabilidade:latest
+          tags: ghcr.io/${{ github.repository_owner }}/projeto-contabilidade:latest
 
   deploy:
     needs: build-and-push
