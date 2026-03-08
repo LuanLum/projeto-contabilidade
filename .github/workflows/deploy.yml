@@ -21,7 +21,7 @@ jobs:
       - name: Build e Push da Imagem Docker
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./backend
           push: true
           # Nome da imagem no registro do GitHub
           tags: ghcr.io/luanlum/projeto-contabilidade:latest
