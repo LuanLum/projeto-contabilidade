@@ -15,16 +15,17 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build e Push da Imagem Docker
         uses: docker/build-push-action@v5
         with:
           context: ./backend
+          file: ./backend/Dockerfile
           push: true
           # Nome da imagem no registro do GitHub
-          tags: ghcr.io/${{ secrets.DOCKER_USERNAME }}/projeto-contabilidade:latest
+          tags: ghcr.io/luanlum/projeto-contabilidade:latest
 
   deploy:
     needs: build-and-push
