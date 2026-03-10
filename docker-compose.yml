@@ -10,6 +10,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+        memory: 250M
+      reservations:
+        memory: 128M
     env_file:
       - .env
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: always
+    command: tunnel --no-autoupdate run --token eyJhIjoiNjVjMGM1NDE1YTMwMzkyYWE2NzBmODJiMzE0ZGNjMGYiLCJ0IjoiZDdmYTc0OTQtMDdiZC00MjUxLWFhYzYtYTRlMzc0NmU2NzdkIiwicyI6Ik1UbGpOMlpoTXprdE1UVXhZUzAwWm1Ka0xUbG1NelF0WTJRelpUSXpaRGMxWm1JMCJ9
+    # O token que você copiou do painel da Cloudflare vai ali em cima
