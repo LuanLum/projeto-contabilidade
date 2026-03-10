@@ -4,7 +4,8 @@ services:
   api:
     image: ghcr.io/luanlum/projeto-contabilidade:latest
     container_name: backend-api
-    mem_limit: 250m # <--- ADICIONE ESTA LINHA AQUI
+    mem_limit: 250m #atualizado
+    mem_reservation: 128m #atualizado
     restart: always
     ports:
       - "3001:3001"
@@ -19,6 +20,7 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
+    container_name: cf-tunnel
+    mem_limit: 50m
     restart: always
     command: tunnel --no-autoupdate run --token eyJhIjoiNjVjMGM1NDE1YTMwMzkyYWE2NzBmODJiMzE0ZGNjMGYiLCJ0IjoiZDdmYTc0OTQtMDdiZC00MjUxLWFhYzYtYTRlMzc0NmU2NzdkIiwicyI6Ik1UbGpOMlpoTXprdE1UVXhZUzAwWm1Ka0xUbG1NelF0WTJRelpUSXpaRGMxWm1JMCJ9
-    # O token que você copiou do painel da Cloudflare vai ali em cima
