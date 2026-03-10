@@ -4,6 +4,7 @@ services:
   api:
     image: ghcr.io/luanlum/projeto-contabilidade:latest
     container_name: backend-api
+    mem_limit: 250m # <--- ADICIONE ESTA LINHA AQUI
     restart: always
     ports:
       - "3001:3001"
