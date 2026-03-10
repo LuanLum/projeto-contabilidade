@@ -9,18 +9,24 @@ services:
     restart: always
     ports:
       - "3001:3001"
-    deploy:
-      resources:
-        limits:
-          memory: 250M
-        reservations:
-          memory: 128M
     env_file:
       - .env
 
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: cf-tunnel
-    mem_limit: 50m
+  nginx-proxy:
+    image: "jc21/nginx-proxy-manager:latest"
+    container_name: nginx-proxy
     restart: always
-    command: tunnel --no-autoupdate run --token eyJhIjoiNjVjMGM1NDE1YTMwMzkyYWE2NzBmODJiMzE0ZGNjMGYiLCJ0IjoiZDdmYTc0OTQtMDdiZC00MjUxLWFhYzYtYTRlMzc0NmU2NzdkIiwicyI6Ik1UbGpOMlpoTXprdE1UVXhZUzAwWm1Ka0xUbG1NelF0WTJRelpUSXpaRGMxWm1JMCJ9
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81" # Porta do painel de controle
+    mem_limit: 120M # Muito leve!
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+  #tunnel:
+  #image: cloudflare/cloudflared:latest
+  #container_name: cf-tunnel
+  #mem_limit: 50m
+  #restart: always
+  #command: tunnel --no-autoupdate run --token eyJhIjoiNjVjMGM1NDE1YTMwMzkyYWE2NzBmODJiMzE0ZGNjMGYiLCJ0IjoiZDdmYTc0OTQtMDdiZC00MjUxLWFhYzYtYTRlMzc0NmU2NzdkIiwicyI6Ik1UbGpOMlpoTXprdE1UVXhZUzAwWm1Ka0xUbG1NelF0WTJRelpUSXpaRGMxWm1JMCJ9
