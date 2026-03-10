@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml" # Ou o caminho onde ele estiver
-          target: "~/projeto-contabilidade"
+          target: "~/app/projeto-contabilidade"
 
       - name: Executar comandos no servidor via SSH
         uses: appleboy/ssh-action@master
@@ -54,7 +54,7 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd ~/projeto-contabilidade
+            cd ~/app/projeto-contabilidade
             # Login silencioso usando o token automático do GitHub
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
