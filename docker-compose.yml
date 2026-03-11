@@ -24,6 +24,16 @@ services:
     volumes:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
+
+  terminal:
+    image: tsl0922/ttyd:latest
+    container_name: ttyd
+    ports:
+      - "7681:7681"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Se quiser gerenciar docker por ele
+    command: ttyd -p 7681 login # O 'login' força pedir a senha do seu usuário linux
+    restart: unless-stopped
   #tunnel:
   #image: cloudflare/cloudflared:latest
   #container_name: cf-tunnel
