@@ -12,7 +12,7 @@ type Conta = {
 };
 
 type MovimentacaoForm = {
-  id: string; // temp id for UI
+  id: string;
   natureza: "Debito" | "Credito";
   contaPaiId: number | "";
   contaId: number | "";
@@ -45,7 +45,7 @@ export default function LancamentoForm() {
           setContas(res.data);
         }
       })
-      .catch((err) => console.error(err))
+      .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
@@ -53,27 +53,52 @@ export default function LancamentoForm() {
 
   const getContasFilhas = (paiId: number | "") => {
     if (paiId === "") return [];
-    return contas.filter((c) => c.contaPaiId === Number(paiId));
+    return contas.filter((c) => c.contaPaiId === paiId);
   };
 
-  const handleMovimentacaoChange = (id: string, field: keyof MovimentacaoForm, value: string) => {
-    setMovimentacoes(prev => prev.map(m => {
-      if (m.id === id) {
-        if (field === 'contaPaiId') {
-          return { ...m, contaPaiId: value === '' ? '' : Number(value), contaId: '' };
+  const toNumberOrEmpty = (v: string): number | "" =>
+    v === "" ? "" : Number(v);
+
+  const handleMovimentacaoChange = (
+    id: string,
+    field: keyof MovimentacaoForm,
+    value: string,
+  ) => {
+    setMovimentacoes((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+
+        switch (field) {
+          case "contaPaiId":
+            return {
+              ...m,
+              contaPaiId: toNumberOrEmpty(value),
+              contaId: "",
+            };
+
+          case "contaId":
+            return {
+              ...m,
+              contaId: toNumberOrEmpty(value),
+            };
+
+          case "natureza":
+            return {
+              ...m,
+              natureza: value as "Debito" | "Credito",
+            };
+
+          case "valor":
+            return {
+              ...m,
+              valor: value,
+            };
+
+          default:
+            return m;
         }
-        if (field === 'contaId') {
-          return { ...m, contaId: value === '' ? '' : Number(value) };
-        }
-        if (field === 'natureza') {
-          return { ...m, natureza: value as 'Debito' | 'Credito' };
-        }
-        if (field === 'valor') {
-          return { ...m, valor: value };
-        }
-      }
-      return m;
-    }));
+      }),
+    );
   };
 
   const addMovimentacao = () => {
@@ -128,7 +153,7 @@ export default function LancamentoForm() {
         movimentacoes: movimentacoes.map((m) => ({
           contaId: Number(m.contaId),
           natureza: m.natureza,
-          valor: m.valor.toString(),
+          valor: m.valor,
         })),
       };
 
@@ -137,13 +162,14 @@ export default function LancamentoForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const data = await res.json();
 
       if (res.ok && data.success) {
         setSuccess(true);
-        // Reset form
         setDescricaoHistorico("");
         setDocumentoReferencia("");
+
         setMovimentacoes([
           {
             id: Date.now().toString() + "1",
@@ -163,298 +189,98 @@ export default function LancamentoForm() {
       } else {
         setError(data.error || "Erro ao salvar lançamento.");
       }
-    } catch (err) {
+    } catch {
       setError("Erro de rede ao salvar lançamento.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <div className="glass-panel" style={{ padding: "2rem" }}>
         Carregando contas...
       </div>
     );
+  }
 
   return (
-    <div
-      className="glass-panel"
-      style={{ padding: "2rem", animation: "slideUp 0.5s ease" }}
-    >
-      <h2
-        style={{ marginBottom: "1.5rem", fontSize: "1.5rem", fontWeight: 600 }}
-      >
-        Novo Lançamento Contábil
-      </h2>
+    <div className="glass-panel" style={{ padding: "2rem" }}>
+      <h2>Novo Lançamento Contábil</h2>
 
-      {error && (
-        <div
-          className="glass-panel"
-          style={{
-            background: "rgba(239,68,68,0.1)",
-            color: "#fca5a5",
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            border: "1px solid rgba(239,68,68,0.3)",
-          }}
-        >
-          {error}
-        </div>
-      )}
-      {success && (
-        <div
-          className="glass-panel"
-          style={{
-            background: "rgba(34,197,94,0.1)",
-            color: "#86efac",
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            border: "1px solid rgba(34,197,94,0.3)",
-          }}
-        >
-          Lançamento salvo com sucesso!
-        </div>
-      )}
+      {error && <div>{error}</div>}
+      {success && <div>Lançamento salvo com sucesso!</div>}
 
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "1rem",
-          }}
-        >
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                color: "var(--text-secondary)",
-              }}
+      <form onSubmit={handleSubmit}>
+        <input
+          type="date"
+          value={dataOcorrencia}
+          onChange={(e) => setDataOcorrencia(e.target.value)}
+        />
+
+        <input
+          type="text"
+          placeholder="Histórico"
+          value={descricaoHistorico}
+          onChange={(e) => setDescricaoHistorico(e.target.value)}
+        />
+
+        {movimentacoes.map((mov) => (
+          <div key={mov.id}>
+            <select
+              value={mov.natureza}
+              onChange={(e) =>
+                handleMovimentacaoChange(mov.id, "natureza", e.target.value)
+              }
             >
-              Data da Ocorrência
-            </label>
+              <option value="Debito">D</option>
+              <option value="Credito">C</option>
+            </select>
+
+            <select
+              value={mov.contaPaiId}
+              onChange={(e) =>
+                handleMovimentacaoChange(mov.id, "contaPaiId", e.target.value)
+              }
+            >
+              <option value="">Pai</option>
+              {contasPai.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={mov.contaId}
+              onChange={(e) =>
+                handleMovimentacaoChange(mov.id, "contaId", e.target.value)
+              }
+            >
+              <option value="">Filha</option>
+              {getContasFilhas(mov.contaPaiId).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+
             <input
-              type="date"
-              className="input-premium"
-              value={dataOcorrencia}
-              onChange={(e) => setDataOcorrencia(e.target.value)}
-              required
+              type="number"
+              value={mov.valor}
+              onChange={(e) =>
+                handleMovimentacaoChange(mov.id, "valor", e.target.value)
+              }
             />
           </div>
-          <div>
-            <label
-              style={{
-                display: "block",
-                marginBottom: "0.5rem",
-                color: "var(--text-secondary)",
-              }}
-            >
-              Doc. Referência (Opcional)
-            </label>
-            <input
-              type="text"
-              className="input-premium"
-              placeholder="Ex: NF 12345"
-              value={documentoReferencia}
-              onChange={(e) => setDocumentoReferencia(e.target.value)}
-            />
-          </div>
-        </div>
+        ))}
 
-        <div>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "0.5rem",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Histórico
-          </label>
-          <input
-            type="text"
-            className="input-premium"
-            placeholder="Descrição do fato contábil..."
-            value={descricaoHistorico}
-            onChange={(e) => setDescricaoHistorico(e.target.value)}
-            required
-            minLength={5}
-          />
-        </div>
+        <button type="button" onClick={addMovimentacao}>
+          Add
+        </button>
 
-        <div
-          style={{
-            marginTop: "1rem",
-            borderTop: "1px solid var(--glass-border)",
-            paddingTop: "1.5rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <h3 style={{ fontSize: "1.2rem", color: "var(--text-secondary)" }}>
-              Partidas (Débitos e Créditos)
-            </h3>
-            <button
-              type="button"
-              onClick={addMovimentacao}
-              className="btn-secondary"
-            >
-              + Adicionar Linha
-            </button>
-          </div>
-
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-          >
-            {movimentacoes.map((mov, index) => (
-              <div
-                key={mov.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "min-content 1fr 1fr 1fr min-content",
-                  gap: "0.75rem",
-                  alignItems: "center",
-                  background: "rgba(0,0,0,0.2)",
-                  padding: "1rem",
-                  borderRadius: "8px",
-                }}
-              >
-                <select
-                  className="input-premium"
-                  value={mov.natureza}
-                  onChange={(e) =>
-                    handleMovimentacaoChange(mov.id, "natureza", e.target.value)
-                  }
-                  style={{ padding: "0.75rem 0.5rem" }}
-                >
-                  <option value="Debito">D</option>
-                  <option value="Credito">C</option>
-                </select>
-
-                <select
-                  className="input-premium"
-                  value={mov.contaPaiId}
-                  onChange={(e) =>
-                    handleMovimentacaoChange(
-                      mov.id,
-                      "contaPaiId",
-                      e.target.value,
-                    )
-                  }
-                  required
-                >
-                  <option value="">-- Grupo PAI --</option>
-                  {contasPai.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.codigo} - {c.nome}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="input-premium"
-                  value={mov.contaId}
-                  onChange={(e) =>
-                    handleMovimentacaoChange(mov.id, "contaId", e.target.value)
-                  }
-                  required
-                  disabled={!mov.contaPaiId}
-                >
-                  <option value="">-- Conta Filha --</option>
-                  {getContasFilhas(mov.contaPaiId).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.codigo} - {c.nome}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  className="input-premium"
-                  placeholder="0.00"
-                  value={mov.valor}
-                  onChange={(e) =>
-                    handleMovimentacaoChange(mov.id, "valor", e.target.value)
-                  }
-                  required
-                />
-
-                {movimentacoes.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => removeMovimentacao(mov.id)}
-                    className="btn-danger"
-                    style={{
-                      padding: "0.75rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: "1rem",
-              gap: "2rem",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <div>
-              Total Débitos:{" "}
-              <strong style={{ color: "#06b6d4", fontSize: "1.2rem" }}>
-                R$ {totalDebitos.toFixed(2)}
-              </strong>
-            </div>
-            <div>
-              Total Créditos:{" "}
-              <strong style={{ color: "#8b5cf6", fontSize: "1.2rem" }}>
-                R$ {totalCreditos.toFixed(2)}
-              </strong>
-            </div>
-          </div>
-
-          {totalDebitos > 0 && totalCreditos > 0 && !isBalanced && (
-            <div
-              style={{
-                textAlign: "right",
-                color: "#ef4444",
-                fontSize: "0.9rem",
-                marginTop: "0.5rem",
-              }}
-            >
-              Diferença: R$ {Math.abs(totalDebitos - totalCreditos).toFixed(2)}
-            </div>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          className="btn-primary"
-          style={{ marginTop: "1rem" }}
-          disabled={submitting || !isBalanced}
-        >
-          {submitting ? "Salvando..." : "Salvar Lançamento (Fato)"}
+        <button type="submit" disabled={!isBalanced}>
+          Salvar
         </button>
       </form>
     </div>
