@@ -5,14 +5,11 @@ import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
+  datasource: {
+    url: process.env.DIRECT_URL,
+  },
   migrations: {
     path: "prisma/migrations",
-  },
-  datasource: {
-    url: process.env["DATABASE_URL"],
-  },
-  migrate: {
-    // Usa a URL direta (porta 5432) para conseguir criar as tabelas
-    databaseUrl: process.env.DIRECT_URL,
+    seed: "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
   },
 });

@@ -1,5 +1,3 @@
-# Contexto: Regras de Banco de Dados (02_banco_dados)
-
 // ==========================================
 // ENUMS (Domínios Restritos)
 // ==========================================
