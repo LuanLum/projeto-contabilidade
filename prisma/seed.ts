@@ -1,67 +1,73 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
 
-const pool = new pg.Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Iniciando o plantio das contas raiz...");
+  console.log("Iniciando o plantio das contas raiz...");
 
-  // Cria a conta raiz do ATIVO
+  // Garantir que a empresa padrão exista
+  const empresa = await prisma.empresa.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      nome: "Minha Empresa Real",
+      isDemo: false,
+    },
+  });
+
+  const empresaId = empresa.id;
+
+  // Cria as contas raiz usando compound unique (codigo + empresaId)
   const ativo = await prisma.contaContabil.upsert({
-    where: { codigo: "1" },
+    where: { codigo_empresaId: { codigo: "1", empresaId } },
     update: {},
     create: {
       codigo: "1",
       nome: "ATIVO",
       tipo: "Ativo",
       aceitaLancamento: false,
+      empresaId,
     },
   });
 
-  // Cria a conta raiz do PASSIVO
   const passivo = await prisma.contaContabil.upsert({
-    where: { codigo: "2" },
+    where: { codigo_empresaId: { codigo: "2", empresaId } },
     update: {},
     create: {
       codigo: "2",
       nome: "PASSIVO",
       tipo: "Passivo",
       aceitaLancamento: false,
+      empresaId,
     },
   });
 
-  // Cria a conta raiz de RECEITAS
   const receitas = await prisma.contaContabil.upsert({
-    where: { codigo: "3" },
+    where: { codigo_empresaId: { codigo: "3", empresaId } },
     update: {},
     create: {
       codigo: "3",
       nome: "RECEITAS",
       tipo: "Receita",
       aceitaLancamento: false,
+      empresaId,
     },
   });
 
-  // Cria a conta raiz de DESPESAS
   const despesas = await prisma.contaContabil.upsert({
-    where: { codigo: "4" },
+    where: { codigo_empresaId: { codigo: "4", empresaId } },
     update: {},
     create: {
       codigo: "4",
       nome: "DESPESAS",
       tipo: "Despesa",
       aceitaLancamento: false,
+      empresaId,
     },
   });
 
-  console.log("✅ Plano de Contas básico criado com sucesso!");
+  console.log("Plano de Contas basico criado com sucesso!");
 }
 
 main()

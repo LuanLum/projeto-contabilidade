@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { LancamentoSchema } from "@/lib/schemas/lancamento";
+import { getEmpresaId } from "@/lib/auth-utils";
 
 export async function POST(request: Request) {
   try {
+    const empresaId = getEmpresaId(request);
     const body = await request.json();
     
     // 1. Validação via Zod (Incluindo regra Sum(Deb) = Sum(Cred))
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
           dataOcorrencia: data.dataOcorrencia,
           descricaoHistorico: data.descricaoHistorico,
           documentoReferencia: data.documentoReferencia,
+          empresaId: empresaId,
         },
       });
 
@@ -56,9 +59,11 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const empresaId = getEmpresaId(request);
     const lancamentos = await prisma.lancamentoContabil.findMany({
+      where: { empresaId },
       take: 10,
       orderBy: {
         dataOcorrencia: 'desc'

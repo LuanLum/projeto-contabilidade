@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getEmpresaId } from "@/lib/auth-utils";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const empresaId = getEmpresaId(request);
     const contas = await prisma.contaContabil.findMany({
+      where: { empresaId },
       orderBy: {
         codigo: 'asc'
       },
@@ -26,23 +29,59 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const empresaId = getEmpresaId(request);
     const body = await request.json();
-    const { codigo, nome, tipo, aceitaLancamento, contaPaiId } = body;
+    const { codigo, nome, aceitaLancamento, contaPaiId } = body;
 
-    if (!codigo || !nome || !tipo) {
+    if (!codigo || !nome) {
       return NextResponse.json(
-        { success: false, error: "Campos obrigatórios (codigo, nome, tipo) não preenchidos." },
+        { success: false, error: "Campos obrigatorios (codigo, nome) nao preenchidos." },
         { status: 400 }
       );
+    }
+
+    // Derivacao estrita do tipo pelo primeiro digito do codigo
+    const TIPO_MAP: Record<string, "Ativo" | "Passivo" | "Receita" | "Despesa"> = {
+      '1': 'Ativo',
+      '2': 'Passivo',
+      '3': 'Receita',
+      '4': 'Despesa',
+    };
+
+    const primeiroDigito = codigo.toString().charAt(0);
+    const tipoDerivedado = TIPO_MAP[primeiroDigito];
+
+    if (!tipoDerivedado) {
+      return NextResponse.json(
+        { success: false, error: `Codigo invalido. O primeiro digito deve ser 1 (Ativo), 2 (Passivo), 3 (Receita) ou 4 (Despesa). Recebido: "${primeiroDigito}".` },
+        { status: 400 }
+      );
+    }
+
+    // Se tem conta pai, validar que o prefixo do codigo e compativel
+    if (contaPaiId) {
+      const pai = await prisma.contaContabil.findUnique({ 
+        where: { id: Number(contaPaiId), empresaId } 
+      });
+      if (!pai) {
+        return NextResponse.json({ success: false, error: "Conta pai não encontrada ou pertence a outra empresa." }, { status: 400 });
+      }
+      if (!codigo.toString().startsWith(pai.codigo)) {
+        return NextResponse.json(
+          { success: false, error: `O codigo "${codigo}" deve comecar com o prefixo do pai "${pai.codigo}".` },
+          { status: 400 }
+        );
+      }
     }
 
     const newConta = await prisma.contaContabil.create({
       data: {
         codigo,
         nome,
-        tipo,
-        aceitaLancamento: aceitaLancamento ?? false,
+        tipo: tipoDerivedado,
+        aceitaLancamento: aceitaLancamento ?? true,
         contaPaiId: contaPaiId ? Number(contaPaiId) : null,
+        empresaId: empresaId
       }
     });
 

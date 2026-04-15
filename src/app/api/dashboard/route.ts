@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getEmpresaId } from "@/lib/auth-utils";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Busca agrupada das movimentações juntando com a conta para saber o Tipo (Ativo, Passivo, etc)
+    const empresaId = getEmpresaId(request);
+    // Busca agrupada das movimentações juntando com a conta para saber o Tipo
     const movimentacoes = await prisma.movimentacaoItem.findMany({
+      where: {
+        lancamento: {
+          empresaId: empresaId
+        }
+      },
       include: {
         conta: true,
       },

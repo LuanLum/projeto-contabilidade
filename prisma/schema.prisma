@@ -40,23 +40,43 @@ enum StatusBem {
 // MODELOS (Tabelas)
 // ==========================================
 
+/// Representa uma empresa (Tenant) no sistema.
+model Empresa {
+  id         Int      @id @default(autoincrement())
+  nome       String   @db.VarChar(255)
+  isDemo     Boolean  @default(false) @map("is_demo")
+  templateId String?  @map("template_id") // 'service', 'commerce', 'industry'
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  contas       ContaContabil[]
+  lancamentos  LancamentoContabil[]
+  bens         BemPatrimonial[]
+
+  @@map("empresa")
+}
+
 /// Armazena a hierarquia completa do plano de contas da empresa.
 model ContaContabil {
   id               Int       @id @default(autoincrement())
-  codigo           String    @unique @db.VarChar(50)
+  codigo           String    @db.VarChar(50)
   nome             String    @db.VarChar(255)
   tipo             TipoConta
   aceitaLancamento Boolean   @default(false) @map("aceita_lancamento")
   
+  // Multi-tenancy
+  empresaId        Int       @map("empresa_id")
+  empresa          Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
   // Auto-relacionamento (Hierarquia Infinita)
   contaPaiId       Int?            @map("conta_pai_id")
   contaPai         ContaContabil?  @relation("HierarquiaContas", fields: [contaPaiId], references: [id])
   contasFilhas     ContaContabil[] @relation("HierarquiaContas")
 
-  // Relacionamentos inversos (necessários para o Prisma saber onde a conta é usada)
+  // Relacionamentos inversos
   movimentacoes    MovimentacaoItem[]
   bensPatrimoniais BemPatrimonial[]
 
+  @@unique([codigo, empresaId])
   @@map("conta_contabil")
 }
 
@@ -67,6 +87,10 @@ model LancamentoContabil {
   descricaoHistorico  String   @db.Text @map("descricao_historico")
   documentoReferencia String?  @db.VarChar(100) @map("documento_referencia")
   criadoEm            DateTime @default(now()) @map("criado_em")
+
+  // Multi-tenancy
+  empresaId           Int      @map("empresa_id")
+  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 
   // Relacionamento com as linhas (1 Lançamento -> N Movimentações)
   movimentacoes MovimentacaoItem[]
@@ -84,10 +108,8 @@ model MovimentacaoItem {
   lancamentoId Int @map("lancamento_id")
   contaId      Int @map("conta_id")
 
-  // Relacionamentos (As conexões reais com os outros modelos)
-  // onDelete: Cascade garante que se o lançamento for apagado, as linhas de movimento vão junto
+  // Relacionamentos
   lancamento LancamentoContabil @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
-  // onDelete: Restrict impede que uma conta seja apagada se tiver dinheiro movimentado nela
   conta      ContaContabil      @relation(fields: [contaId], references: [id], onDelete: Restrict)
 
   @@map("movimentacao_item")
@@ -102,7 +124,13 @@ model BemPatrimonial {
   taxaDepreciacaoAnual Decimal   @db.Decimal(5, 2) @map("taxa_depreciacao_anual")
   status               StatusBem @default(Ativo)
   
+  // Multi-tenancy
+  empresaId            Int       @map("empresa_id")
+  empresa              Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
   // Chave estrangeira e relacionamento
   contaImobilizadoId Int           @map("conta_imobilizado_id")
   contaImobilizado   ContaContabil @relation(fields: [contaImobilizadoId], references: [id], onDelete: Restrict)
+
+  @@map("bem_patrimonial")
 }
