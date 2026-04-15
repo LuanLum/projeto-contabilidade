@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/debug.js && npx prisma generate && next build",
+    "build": "echo 'BUILD START' && npx prisma generate && next build",
     "start": "next start",
     "lint": "eslint"
   },
