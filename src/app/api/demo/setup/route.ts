@@ -1,5 +1,21 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 import { TEMPLATES } from "@/lib/templates/definitions";
 
 export async function POST(request: Request) {
@@ -8,12 +24,15 @@ export async function POST(request: Request) {
     const template = TEMPLATES[templateId as keyof typeof TEMPLATES];
 
     if (!template) {
-      return NextResponse.json({ success: false, error: "Template não encontrado." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Template não encontrado." },
+        { status: 400 },
+      );
     }
 
     // 1. Garantir que a empresa de DEMO existe
     let demoEmpresa = await prisma.empresa.findFirst({
-      where: { isDemo: true, templateId: templateId }
+      where: { isDemo: true, templateId: templateId },
     });
 
     if (!demoEmpresa) {
@@ -21,8 +40,8 @@ export async function POST(request: Request) {
         data: {
           nome: `DEMO - ${template.name}`,
           isDemo: true,
-          templateId: templateId
-        }
+          templateId: templateId,
+        },
       });
     }
 
@@ -32,19 +51,19 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       // Deletar movimentos e lançamentos
       await tx.movimentacaoItem.deleteMany({
-        where: { lancamento: { empresaId } }
+        where: { lancamento: { empresaId } },
       });
       await tx.lancamentoContabil.deleteMany({
-        where: { empresaId }
+        where: { empresaId },
       });
-      
+
       // Deletar contas (precisa ser do fim para o início da hierarquia, ou várias passadas)
       // Como o volume é baixo no demo, podemos deletar as filhas primeiro
       await tx.contaContabil.deleteMany({
-        where: { empresaId, contaPaiId: { not: null } }
+        where: { empresaId, contaPaiId: { not: null } },
       });
       await tx.contaContabil.deleteMany({
-        where: { empresaId }
+        where: { empresaId },
       });
 
       // 3. Semear Plano de Contas
@@ -52,14 +71,17 @@ export async function POST(request: Request) {
       const contasCriadas: Record<string, number> = {};
 
       // Ordenamos por profundidade do código (quantidade de pontos)
-      const sortedAccounts = [...template.accounts].sort((a, b) => 
-        (a.codigo.match(/\./g) || []).length - (b.codigo.match(/\./g) || []).length
+      const sortedAccounts = [...template.accounts].sort(
+        (a, b) =>
+          (a.codigo.match(/\./g) || []).length -
+          (b.codigo.match(/\./g) || []).length,
       );
 
       for (const acc of sortedAccounts) {
         // Achar o pai pelo código prefixo
-        const partes = acc.codigo.split('.');
-        const codigoPai = partes.length > 1 ? partes.slice(0, -1).join('.') : null;
+        const partes = acc.codigo.split(".");
+        const codigoPai =
+          partes.length > 1 ? partes.slice(0, -1).join(".") : null;
         const contaPaiId = codigoPai ? contasCriadas[codigoPai] : null;
 
         const newAcc = await tx.contaContabil.create({
@@ -69,8 +91,8 @@ export async function POST(request: Request) {
             tipo: acc.tipo,
             aceitaLancamento: acc.aceitaLancamento,
             empresaId: empresaId,
-            contaPaiId: contaPaiId
-          }
+            contaPaiId: contaPaiId,
+          },
         });
         contasCriadas[acc.codigo] = newAcc.id;
       }
@@ -86,25 +108,30 @@ export async function POST(request: Request) {
             dataOcorrencia: data,
             empresaId: empresaId,
             movimentacoes: {
-              create: t.movimentacoes.map(m => ({
+              create: t.movimentacoes.map((m) => ({
                 natureza: m.natureza,
                 valor: m.valor,
-                contaId: contasCriadas[m.codigoConta]
-              }))
-            }
-          }
+                contaId: contasCriadas[m.codigoConta],
+              })),
+            },
+          },
         });
       }
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       empresaId: empresaId,
-      message: `Ambiente de demonstração '${template.name}' configurado com sucesso.` 
+      message: `Ambiente de demonstração '${template.name}' configurado com sucesso.`,
     });
-
   } catch (error) {
     console.error("Erro ao configurar demo:", error);
-    return NextResponse.json({ success: false, error: "Falha ao configurar ambiente de demonstração." }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Falha ao configurar ambiente de demonstração.",
+      },
+      { status: 500 },
+    );
   }
 }

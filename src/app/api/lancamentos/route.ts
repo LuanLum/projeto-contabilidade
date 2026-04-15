@@ -1,5 +1,21 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 import { LancamentoSchema } from "@/lib/schemas/lancamento";
 import { getEmpresaId } from "@/lib/auth-utils";
 
@@ -7,14 +23,18 @@ export async function POST(request: Request) {
   try {
     const empresaId = getEmpresaId(request);
     const body = await request.json();
-    
+
     // 1. Validação via Zod (Incluindo regra Sum(Deb) = Sum(Cred))
     const validation = LancamentoSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
-        { success: false, error: "Dados inválidos", details: validation.error.format() },
-        { status: 400 }
+        {
+          success: false,
+          error: "Dados inválidos",
+          details: validation.error.format(),
+        },
+        { status: 400 },
       );
     }
 
@@ -42,8 +62,8 @@ export async function POST(request: Request) {
               contaId: mov.contaId,
               lancamentoId: lancamento.id,
             },
-          })
-        )
+          }),
+        ),
       );
 
       return { ...lancamento, movimentacoes };
@@ -54,7 +74,7 @@ export async function POST(request: Request) {
     console.error("Erro ao salvar lançamento:", error);
     return NextResponse.json(
       { success: false, error: "Erro interno ao processar o lançamento" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -66,15 +86,15 @@ export async function GET(request: Request) {
       where: { empresaId },
       take: 10,
       orderBy: {
-        dataOcorrencia: 'desc'
+        dataOcorrencia: "desc",
       },
       include: {
         movimentacoes: {
           include: {
-            conta: true
-          }
-        }
-      }
+            conta: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({ success: true, data: lancamentos });
@@ -82,7 +102,7 @@ export async function GET(request: Request) {
     console.error("Erro ao carregar histórico de lançamentos:", error);
     return NextResponse.json(
       { success: false, error: "Falha ao consultar histórico" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

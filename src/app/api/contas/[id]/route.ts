@@ -1,10 +1,26 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 import { getEmpresaId } from "@/lib/auth-utils";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } },
 ) {
   try {
     const empresaId = getEmpresaId(request);
@@ -12,22 +28,35 @@ export async function DELETE(
     const id = Number(idStr);
 
     if (isNaN(id)) {
-      return NextResponse.json({ success: false, error: "ID invalido." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "ID invalido." },
+        { status: 400 },
+      );
     }
 
     // Protecao contra delecao de contas raiz (Ativo, Passivo, Receita, Despesa)
-    const conta = await prisma.contaContabil.findUnique({ 
-      where: { id, empresaId } 
+    const conta = await prisma.contaContabil.findUnique({
+      where: { id, empresaId },
     });
-    
+
     if (!conta) {
-       return NextResponse.json({ success: false, error: "Conta nao encontrada ou não pertence a esta empresa." }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Conta nao encontrada ou não pertence a esta empresa.",
+        },
+        { status: 404 },
+      );
     }
 
-    if (['1', '2', '3', '4'].includes(conta.codigo)) {
+    if (["1", "2", "3", "4"].includes(conta.codigo)) {
       return NextResponse.json(
-        { success: false, error: "Nao e possivel excluir contas raiz do sistema (Ativo, Passivo, Receita ou Despesa)." },
-        { status: 403 }
+        {
+          success: false,
+          error:
+            "Nao e possivel excluir contas raiz do sistema (Ativo, Passivo, Receita ou Despesa).",
+        },
+        { status: 403 },
       );
     }
 
@@ -40,9 +69,10 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error: "Nao e possivel excluir uma conta que possui subcontas vinculadas.",
+          error:
+            "Nao e possivel excluir uma conta que possui subcontas vinculadas.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,9 +85,10 @@ export async function DELETE(
       return NextResponse.json(
         {
           success: false,
-          error: "Nao e possivel excluir uma conta que possui lancamentos contabeis vinculados.",
+          error:
+            "Nao e possivel excluir uma conta que possui lancamentos contabeis vinculados.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -65,12 +96,15 @@ export async function DELETE(
       where: { id, empresaId },
     });
 
-    return NextResponse.json({ success: true, message: "Conta excluida com sucesso." });
+    return NextResponse.json({
+      success: true,
+      message: "Conta excluida com sucesso.",
+    });
   } catch (error) {
     console.error("Erro ao excluir conta:", error);
     return NextResponse.json(
       { success: false, error: "Erro interno ao excluir a conta." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

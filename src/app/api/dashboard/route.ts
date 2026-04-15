@@ -1,5 +1,21 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: ["error"],
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 import { getEmpresaId } from "@/lib/auth-utils";
 
 export async function GET(request: Request) {
@@ -9,8 +25,8 @@ export async function GET(request: Request) {
     const movimentacoes = await prisma.movimentacaoItem.findMany({
       where: {
         lancamento: {
-          empresaId: empresaId
-        }
+          empresaId: empresaId,
+        },
       },
       include: {
         conta: true,
@@ -24,26 +40,26 @@ export async function GET(request: Request) {
       Despesa: 0,
     };
 
-    movimentacoes.forEach(mov => {
+    movimentacoes.forEach((mov) => {
       const valor = parseFloat(mov.valor.toString());
-      const isDebito = mov.natureza === 'Debito';
+      const isDebito = mov.natureza === "Debito";
 
       // Lógica Contábil Básica de Saldos:
       // Ativo cresce a Débito, diminui a Crédito
       // Passivo cresce a Crédito, diminui a Débito
       // Despesa cresce a Débito, diminui a Crédito
       // Receita cresce a Crédito, diminui a Débito
-      switch(mov.conta.tipo) {
-        case 'Ativo':
+      switch (mov.conta.tipo) {
+        case "Ativo":
           saldos.Ativo += isDebito ? valor : -valor;
           break;
-        case 'Passivo':
+        case "Passivo":
           saldos.Passivo += !isDebito ? valor : -valor;
           break;
-        case 'Despesa':
+        case "Despesa":
           saldos.Despesa += isDebito ? valor : -valor;
           break;
-        case 'Receita':
+        case "Receita":
           saldos.Receita += !isDebito ? valor : -valor;
           break;
       }
@@ -52,14 +68,14 @@ export async function GET(request: Request) {
     // Construção dos dados padronizada para o Recharts
     const dataGraficos = {
       patrimonial: [
-        { name: 'Ativos', valor: saldos.Ativo, fill: '#06b6d4' },
-        { name: 'Passivos', valor: saldos.Passivo, fill: '#8b5cf6' }
+        { name: "Ativos", valor: saldos.Ativo, fill: "#06b6d4" },
+        { name: "Passivos", valor: saldos.Passivo, fill: "#8b5cf6" },
       ],
       resultado: [
-        { name: 'Receitas', valor: saldos.Receita, fill: '#22c55e' },
-        { name: 'Despesas', valor: saldos.Despesa, fill: '#ef4444' }
+        { name: "Receitas", valor: saldos.Receita, fill: "#22c55e" },
+        { name: "Despesas", valor: saldos.Despesa, fill: "#ef4444" },
       ],
-      saldos
+      saldos,
     };
 
     return NextResponse.json({ success: true, data: dataGraficos });
@@ -67,7 +83,7 @@ export async function GET(request: Request) {
     console.error("Erro ao carregar dashboard:", error);
     return NextResponse.json(
       { success: false, error: "Falha ao compilar saldos do dashboard" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
