@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// ==========================================
+// CONFIGURAÇÕES DO PRISMA
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS (Domínios Restritos)
+
+enum TipoConta {
+  Ativo
+  Passivo
+  Receita
+  Despesa
+}
+
+enum NaturezaMov {
+  Debito
+  Credito
+}
+
+enum StatusBem {
+  Ativo
+  Baixado
+  Vendido
+}
+
+// ==========================================
+// MODELOS (Tabelas)
+// ==========================================
+
+/// Representa uma empresa (Tenant) no sistema.
+model Empresa {
+  id         Int      @id @default(autoincrement())
+  nome       String   @db.VarChar(255)
+  isDemo     Boolean  @default(false) @map("is_demo")
+  templateId String?  @map("template_id") // 'service', 'commerce', 'industry'
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  contas       ContaContabil[]
+  lancamentos  LancamentoContabil[]
+  bens         BemPatrimonial[]
+
+  @@map("empresa")
+}
+
+/// Armazena a hierarquia completa do plano de contas da empresa.
+model ContaContabil {
+  id               Int       @id @default(autoincrement())
+  codigo           String    @db.VarChar(50)
+  nome             String    @db.VarChar(255)
+  tipo             TipoConta
+  aceitaLancamento Boolean   @default(false) @map("aceita_lancamento")
+  
+  // Multi-tenancy
+  empresaId        Int       @map("empresa_id")
+  empresa          Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  // Auto-relacionamento (Hierarquia Infinita)
+  contaPaiId       Int?            @map("conta_pai_id")
+  contaPai         ContaContabil?  @relation("HierarquiaContas", fields: [contaPaiId], references: [id])
+  contasFilhas     ContaContabil[] @relation("HierarquiaContas")
+
+  // Relacionamentos inversos
+  movimentacoes    MovimentacaoItem[]
+  bensPatrimoniais BemPatrimonial[]
+
+  @@unique([codigo, empresaId])
+  @@map("conta_contabil")
+}
+
+/// Registra o fato gerador (o cabeçalho da transação).
+model LancamentoContabil {
+  id                  Int      @id @default(autoincrement())
+  dataOcorrencia      DateTime @db.Date @map("data_ocorrencia")
+  descricaoHistorico  String   @db.Text @map("descricao_historico")
+  documentoReferencia String?  @db.VarChar(100) @map("documento_referencia")
+  criadoEm            DateTime @default(now()) @map("criado_em")
+
+  // Multi-tenancy
+  empresaId           Int      @map("empresa_id")
+  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  // Relacionamento com as linhas (1 Lançamento -> N Movimentações)
+  movimentacoes MovimentacaoItem[]
+
+  @@map("lancamento_contabil")
+}
+
+/// As pernas de Débito e Crédito do lançamento.
+model MovimentacaoItem {
+  id           Int         @id @default(autoincrement())
+  natureza     NaturezaMov
+  valor        Decimal     @db.Decimal(15, 2)
+  
+  // Chaves estrangeiras
+  lancamentoId Int @map("lancamento_id")
+  contaId      Int @map("conta_id")
+
+  // Relacionamentos
+  lancamento LancamentoContabil @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  conta      ContaContabil      @relation(fields: [contaId], references: [id], onDelete: Restrict)
+
+  @@map("movimentacao_item")
+}
+
+/// Controle de bens físicos duráveis comprados pela empresa (Imobilizado).
+model BemPatrimonial {
+  id                   Int       @id @default(autoincrement())
+  nome                 String    @db.VarChar(255)
+  dataAquisicao        DateTime  @db.Date @map("data_aquisicao")
+  valorAquisicao       Decimal   @db.Decimal(15, 2) @map("valor_aquisicao")
+  taxaDepreciacaoAnual Decimal   @db.Decimal(5, 2) @map("taxa_depreciacao_anual")
+  status               StatusBem @default(Ativo)
+  
+  // Multi-tenancy
+  empresaId            Int       @map("empresa_id")
+  empresa              Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  // Chave estrangeira e relacionamento
+  contaImobilizadoId Int           @map("conta_imobilizado_id")
+  contaImobilizado   ContaContabil @relation(fields: [contaImobilizadoId], references: [id], onDelete: Restrict)
+
+  @@map("bem_patrimonial")
+}

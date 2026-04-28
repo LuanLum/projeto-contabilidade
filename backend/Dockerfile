@@ -1,14 +1,49 @@
-# 1. Escolhemos a imagem oficial do Node (leve e segura)
-FROM node:20-slim
-# 2. Criamos a pasta do app dentro do "container"
+# syntax=docker/dockerfile:1
+
+# ======= BASE =======
+FROM node:20-alpine AS base
+# libc6-compat necessário para alguns binários nativos (Next.js + Prisma)
+RUN apk add --no-cache libc6-compat openssl
+
+# ======= DEPS =======
+# Instala apenas as dependências, incluindo geração do Prisma Client
+FROM base AS deps
 WORKDIR /app
-# 3. Copiamos os arquivos de dependências
-COPY package*.json ./
-# 4. Instalamos as bibliotecas (exatamente como no seu PC)
-RUN npm install --production
-# 5. Copiamos o resto do código
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma/
+RUN npm ci
+RUN npx prisma generate
+
+# ======= BUILDER =======
+# Compila o código Next.js em modo standalone
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# 6. A porta que o seu servidor usa
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+# ======= RUNNER =======
+# Imagem final e enxuta, apenas o necessário para rodar
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3001
+ENV HOSTNAME="0.0.0.0"
+
+# Prisma Client gerado
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/prisma ./prisma
+
+# Arquivos públicos
+COPY --from=builder /app/public ./public
+
+# Build standalone do Next.js
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
 EXPOSE 3001
-# 7. O comando para ligar o servidor
-CMD ["node", "index.js"]
+
+CMD ["node", "server.js"]

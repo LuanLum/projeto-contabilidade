@@ -2,7 +2,7 @@ version: "2.4" #tentativa de fix de erro de mem_limit
 
 services:
   api:
-    image: ghcr.io/luanlum/projeto-contabilidade:latest
+    image: ghcr.io/luanlum/contabilidade-backend:latest
     container_name: backend-api
     mem_limit: 250m #atualizado
     mem_reservation: 128m #atualizado

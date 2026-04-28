@@ -44,7 +44,7 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml" # Ou o caminho onde ele estiver
+          source: "docker-compose.yml,.env" # Ou o caminho onde ele estiver
           target: "~/app/contabilidade-backend"
 
       - name: Executar comandos no servidor via SSH
